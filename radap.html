@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RADAP – Rapid Agricultural Damage Assessment Platform</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Sora:wght@400;500;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F9FC;
+    --white: #fff;
+    --border: #E2E8F0;
+    --navy: #0B1D33;
+    --navy2: #1E3A5F;
+    --blue: #2563EB;
+    --blue-lt: #60A5FA;
+    --blue-bg: #EFF6FF;
+    --text: #0F172A;
+    --sub: #64748B;
+    --muted: #94A3B8;
+    --radius: 13px;
+    --font: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  body { background: var(--bg); font-family: var(--font); min-height: 100vh; }
+
+  /* ── Animations ── */
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  @keyframes barGrow { from{width:0} to{width:var(--w)} }
+
+  /* ── Shared ── */
+  input, select, textarea, button { font-family: var(--font); }
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    border: 1px solid #E8ECF1;
+    box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  }
+  .lbl { display:block; font-size:12px; font-weight:500; color:#334155; margin-bottom:5px; margin-top:14px; }
+  .inp {
+    width:100%; padding:10px 12px; border:1.5px solid var(--border);
+    border-radius:9px; font-size:13px; color:var(--text); background:var(--white);
+    display:block; font-family:var(--font); outline:none;
+    transition: border-color .2s;
+  }
+  .inp:focus { border-color: var(--blue); }
+  .btn-primary {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%; padding:13px 18px;
+    background:linear-gradient(135deg,#1E3A5F,#2563EB);
+    color:#fff; border:none; border-radius:11px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:.2s; font-family:var(--font);
+  }
+  .btn-primary:disabled { background:#CBD5E1; cursor:not-allowed; }
+  .btn-sec {
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    padding:13px 16px; background:#F1F5F9; color:#334155;
+    border:1px solid var(--border); border-radius:11px; font-size:13px;
+    font-weight:500; cursor:pointer; font-family:var(--font);
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position:fixed; top:16px; left:50%; transform:translateX(-50%);
+    z-index:999; background:#065F46; color:#fff;
+    padding:12px 22px; border-radius:14px; font-size:13px; font-weight:600;
+    box-shadow:0 8px 30px rgba(0,0,0,.2); max-width:92%; text-align:center;
+    animation:slideIn .3s ease-out; display:none; align-items:center; gap:8px;
+    pointer-events:none;
+  }
+
+  /* ── Login ── */
+  #screen-login {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#0B1D33,#1E3A5F); padding:20px;
+  }
+  .login-wrap { width:100%; max-width:400px; animation:fadeIn .5s ease-out; }
+  .login-logo {
+    width:64px; height:64px; border-radius:18px; margin:0 auto 12px;
+    background:linear-gradient(135deg,#2563EB,#60A5FA);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 32px rgba(37,99,235,.35); font-size:28px;
+  }
+  .login-box { background:#fff; border-radius:18px; padding:28px 24px; box-shadow:0 16px 48px rgba(0,0,0,.25); }
+
+  /* ── Top Bar ── */
+  #topbar {
+    background:#fff; border-bottom:1px solid var(--border); padding:10px 16px;
+    position:sticky; top:0; z-index:50;
+  }
+  .topbar-inner { max-width:640px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; }
+  .topbar-logo {
+    width:32px; height:32px; border-radius:9px;
+    background:linear-gradient(135deg,#1E3A5F,#2563EB);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:13px;
+  }
+  .avatar {
+    width:30px; height:30px; border-radius:8px;
+    background:#EEF2FF; display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; color:#2563EB;
+  }
+  .topbar-regional {
+    padding:6px 12px; border-radius:8px; border:1px solid var(--border);
+    background:#fff; cursor:pointer; font-size:12px; font-weight:500; color:#334155;
+    font-family:var(--font);
+  }
+  .topbar-regional.active { background:var(--blue-bg); }
+
+  /* ── Main ── */
+  #main { max-width:640px; margin:0 auto; padding:0 16px 96px; }
+
+  /* ── Bottom Nav ── */
+  #bottomnav {
+    position:fixed; bottom:0; left:0; right:0;
+    background:#fff; border-top:1px solid var(--border);
+    display:flex; justify-content:center;
+    padding:6px 0 max(6px, env(safe-area-inset-bottom)); z-index:50;
+  }
+  .nav-btn {
+    flex:1; max-width:110px; display:flex; flex-direction:column; align-items:center; gap:1px;
+    padding:7px 0; background:none; border:none; cursor:pointer;
+    font-size:10px; font-weight:400; color:#94A3B8; font-family:var(--font);
+    transition: color .15s;
+  }
+  .nav-btn.active { color:#2563EB; font-weight:600; }
+  .nav-btn .nav-icon { font-size:18px; }
+  .nav-btn-add {
+    width:42px; height:42px; border-radius:13px;
+    background:linear-gradient(135deg,#1E3A5F,#2563EB);
+    display:flex; align-items:center; justify-content:center;
+    margin-top:-18px; font-size:18px;
+    box-shadow:0 4px 14px rgba(37,99,235,.3);
+  }
+
+  /* ── Screen padding ── */
+  .screen { padding-top:16px; animation:fadeIn .4s ease-out; }
+
+  /* ── Home hero ── */
+  .hero {
+    background:linear-gradient(135deg,#0B1D33,#1E3A5F);
+    border-radius:18px; padding:24px 22px; color:#fff; margin-bottom:16px;
+  }
+  .hero-badge {
+    display:inline-flex; align-items:center; gap:6px; margin-top:12px;
+    background:rgba(245,158,11,.15); padding:5px 14px; border-radius:100px;
+    font-size:11px; color:#FBBF24; font-weight:600;
+  }
+  .quick-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px; }
+  .quick-card {
+    padding:18px 16px; cursor:pointer;
+  }
+  .quick-card.accent { border:2px solid var(--blue); background:var(--blue-bg); }
+  .usda-box {
+    background:#FFFBEB; border:1px solid #FDE68A; border-radius:14px;
+    padding:14px 16px; margin-bottom:18px; display:flex; gap:10px;
+  }
+  .cat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+  .cat-card {
+    padding:14px; cursor:pointer; display:flex; align-items:center; gap:10px;
+  }
+
+  /* ── Progress ── */
+  .progress-bar-bg { height:5px; background:#E2E8F0; border-radius:100px; overflow:hidden; }
+  .progress-bar-fill {
+    height:100%; background:linear-gradient(90deg,#2563EB,#60A5FA);
+    border-radius:100px; transition:width .4s ease;
+  }
+
+  /* ── Category question cards ── */
+  .q-grid { display:grid; gap:12px; }
+  .q-card { padding:16px; }
+
+  /* ── Photo grid ── */
+  .photo-grid { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .photo-thumb { position:relative; }
+  .photo-thumb img { width:56px; height:56px; border-radius:8px; object-fit:cover; }
+  .photo-remove {
+    position:absolute; top:-5px; right:-5px; width:18px; height:18px;
+    border-radius:9px; background:#DC2626; border:none; color:#fff;
+    font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ── Review ── */
+  .sev-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .sev-btn {
+    padding:9px 4px; border-radius:9px; border:1px solid var(--border);
+    background:#fff; cursor:pointer; font-size:11px; font-weight:400;
+    color:#64748B; font-family:var(--font); transition:.15s;
+  }
+  .sev-btn.active { font-weight:700; border-width:2px; }
+
+  /* ── Reports ── */
+  .report-card { padding:16px 18px; }
+  .tags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:100px; background:#F1F5F9; color:#334155; }
+  .hash-box {
+    margin-top:10px; padding:8px 12px; background:#F0FDF4; border-radius:8px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  /* ── Dashboard ── */
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .stat-card { padding:14px 10px; text-align:center; }
+  .alert-banner {
+    background:linear-gradient(135deg,#7F1D1D,#991B1B);
+    border-radius:14px; padding:14px 16px; margin-bottom:16px; color:#fff;
+  }
+  .county-bar-bg { height:6px; background:#E2E8F0; border-radius:100px; overflow:hidden; margin-bottom:6px; }
+  .county-bar-fill { height:100%; border-radius:100px; }
+  .cat-bar-bg { height:8px; background:#F1F5F9; border-radius:100px; overflow:hidden; }
+  .cat-bar-fill { height:100%; border-radius:100px; opacity:.75; }
+
+  /* ── Utility ── */
+  .hidden { display:none !important; }
+  .flex-between { display:flex; justify-content:space-between; align-items:center; }
+  .flex-row { display:flex; align-items:center; gap:8px; }
+  .spinner { display:inline-block; animation:spin 1s linear infinite; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ TOAST ══════════════════ -->
+<div id="toast"></div>
+
+<!-- ══════════════════ LOGIN ══════════════════ -->
+<div id="screen-login">
+  <div class="login-wrap">
+    <div style="text-align:center;margin-bottom:28px">
+      <div class="login-logo"><span>🛡️</span></div>
+      <h1 style="color:#fff;font-size:26px;font-weight:800">RADAP</h1>
+      <p style="color:#93C5FD;font-size:13px">Rapid Agricultural Damage Assessment Platform</p>
+      <p style="color:#64748B;font-size:11px;margin-top:4px">Southern Illinois University Carbondale</p>
+    </div>
+    <div class="login-box">
+      <h2 style="font-size:17px;font-weight:700;color:#0F172A;margin-bottom:2px">Welcome</h2>
+      <p style="font-size:12px;color:#64748B;margin-bottom:20px">Register or sign in to report agricultural damage</p>
+      <label class="lbl" style="margin-top:0">Your Name</label>
+      <input id="login-name" class="inp" placeholder="John Smith" />
+      <label class="lbl">Farm / Operation</label>
+      <input id="login-farm" class="inp" placeholder="Smith Family Farm" />
+      <label class="lbl">County</label>
+      <select id="login-county" class="inp">
+        <option>Jackson</option><option>Williamson</option><option>Union</option>
+        <option>Perry</option><option>Franklin</option><option>Saline</option>
+        <option>Gallatin</option><option>Johnson</option><option>Massac</option>
+        <option>Pulaski</option><option>Alexander</option><option>Pope</option>
+        <option>Hardin</option><option>Other</option>
+      </select>
+      <button id="login-btn" class="btn-primary" style="margin-top:14px;opacity:.5;pointer-events:none" onclick="doLogin()">
+        Access Platform
+      </button>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-top:14px;padding:10px 12px;background:#F0F9FF;border-radius:10px">
+        <span style="font-size:14px;flex-shrink:0">🔒</span>
+        <span style="font-size:11px;color:#1E3A5F;line-height:1.5">Data secured with Hyperledger Fabric blockchain. Only you and authorized agents can access your reports.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ APP SHELL ══════════════════ -->
+<div id="app-shell" class="hidden">
+  <!-- Top Bar -->
+  <header id="topbar">
+    <div class="topbar-inner">
+      <div class="flex-row" style="gap:8px">
+        <div class="topbar-logo">R</div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A;line-height:1.1">RADAP</div>
+          <div style="font-size:10px;color:#64748B">Demo Platform</div>
+        </div>
+      </div>
+      <div class="flex-row">
+        <button class="topbar-regional" id="topbar-regional-btn" onclick="navigate('dashboard')">📊 Regional</button>
+        <div class="avatar" id="topbar-avatar">J</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div id="main">
+    <!-- HOME -->
+    <div id="screen-home" class="screen hidden">
+      <div class="hero">
+        <p style="font-size:12px;color:#93C5FD">Welcome back,</p>
+        <h2 style="font-size:20px;font-weight:700;margin:2px 0 4px" id="home-name"></h2>
+        <p style="font-size:12px;color:#94A3B8" id="home-farm"></p>
+        <div class="hero-badge">
+          <span style="animation:pulse 2s infinite">⚠️</span> Winter Storm Fern — Active Response
+        </div>
+      </div>
+
+      <div class="quick-grid">
+        <div class="card quick-card accent" onclick="navigate('new')">
+          <div style="font-size:24px;margin-bottom:6px">📝</div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A">New Report</div>
+          <div style="font-size:11px;color:#64748B">Document damage</div>
+        </div>
+        <div class="card quick-card" onclick="navigate('reports')">
+          <div style="font-size:24px;margin-bottom:6px">📋</div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A">My Reports</div>
+          <div style="font-size:11px;color:#64748B" id="home-report-count">0 submitted</div>
+        </div>
+      </div>
+
+      <div class="usda-box">
+        <span style="font-size:16px;flex-shrink:0">⏰</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:3px">USDA Reporting Deadline</div>
+          <p style="font-size:12px;color:#A16207;line-height:1.6">Report crop losses within <b>72 hours</b> to your crop insurance agent or FSA. Written follow-up with photos due within <b>15 days</b>.</p>
+        </div>
+      </div>
+
+      <h3 style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:10px">Damage Categories</h3>
+      <div class="cat-grid" id="home-cats"></div>
+
+      <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">⛓️</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#0F172A">Blockchain Secured</div>
+          <div style="font-size:11px;color:#64748B">Reports are immutable and tamper-proof on Hyperledger Fabric</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW REPORT -->
+    <div id="screen-new" class="screen hidden">
+      <!-- Step 0: Pick categories -->
+      <div id="new-step-0">
+        <div id="new-progress-0"></div>
+        <h2 style="font-size:18px;font-weight:700;color:#0F172A;margin:12px 0 4px">Select Damage Categories</h2>
+        <p style="font-size:12px;color:#64748B;margin-bottom:16px">Choose all that apply to your operation.</p>
+        <div id="cat-list" style="display:grid;gap:8px"></div>
+        <button class="btn-primary" id="step0-continue" style="margin-top:16px;opacity:.5;pointer-events:none" onclick="goStep1()">
+          Continue →
+        </button>
+      </div>
+
+      <!-- Step 1+: Questions -->
+      <div id="new-step-q" class="hidden">
+        <div id="q-progress"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin:12px 0 16px">
+          <span id="q-cat-icon" style="font-size:30px"></span>
+          <div>
+            <h2 id="q-cat-label" style="font-size:18px;font-weight:700;color:#0F172A;margin:0"></h2>
+            <p id="q-cat-sub" style="font-size:12px;color:#64748B;margin:0"></p>
+          </div>
+        </div>
+        <div id="q-fields" class="q-grid"></div>
+        <!-- Photo upload -->
+        <div class="card" style="padding:16px;margin-top:12px">
+          <label class="lbl" style="margin-top:0" id="q-photo-lbl">📷 Upload photos</label>
+          <input type="file" id="photo-input" accept="image/*" multiple capture="environment" style="display:none" onchange="handlePhoto(event)" />
+          <button onclick="document.getElementById('photo-input').click()" style="width:100%;padding:12px;border:2px dashed #CBD5E1;border-radius:10px;background:#F8FAFC;cursor:pointer;font-size:13px;color:#64748B;display:flex;align-items:center;justify-content:center;gap:6px;font-family:var(--font)">
+            📸 Take Photo or Choose File
+          </button>
+          <div id="photo-grid" class="photo-grid"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn-sec" onclick="qBack()">← Back</button>
+          <button class="btn-primary" id="q-next-btn" onclick="qNext()" style="flex:1">Next →</button>
+        </div>
+      </div>
+
+      <!-- Review -->
+      <div id="new-step-review" class="hidden">
+        <div id="review-progress"></div>
+        <h2 style="font-size:18px;font-weight:700;color:#0F172A;margin:12px 0 4px">Review & Submit</h2>
+        <p style="font-size:12px;color:#64748B;margin-bottom:16px">Verify your information. Once submitted, data is immutably recorded.</p>
+
+        <div class="card" style="padding:14px 16px;margin-bottom:10px">
+          <div class="flex-between">
+            <div class="flex-row">
+              <span style="font-size:16px">📍</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#0F172A">GPS Location</div>
+                <div id="gps-display" style="font-size:11px;color:#64748B"></div>
+              </div>
+            </div>
+            <span style="font-size:10px;color:#059669;font-weight:700">✓ Captured</span>
+          </div>
+        </div>
+
+        <div id="review-cats" style="display:grid;gap:8px;margin-bottom:10px"></div>
+
+        <div class="card" style="padding:14px 16px;margin-bottom:10px">
+          <div id="review-photos" style="font-size:13px;font-weight:600;color:#0F172A"></div>
+          <div id="review-photo-thumbs" style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap"></div>
+        </div>
+
+        <div class="card" style="padding:16px;margin-bottom:10px">
+          <label class="lbl" style="margin-top:0">Overall Severity</label>
+          <div class="sev-grid">
+            <button class="sev-btn" data-sev="low" onclick="setSeverity('low')">Low</button>
+            <button class="sev-btn active" data-sev="medium" onclick="setSeverity('medium')" style="background:#FEF3C7;color:#92400E;border-color:#92400E">Medium</button>
+            <button class="sev-btn" data-sev="high" onclick="setSeverity('high')">High</button>
+            <button class="sev-btn" data-sev="critical" onclick="setSeverity('critical')">Critical</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px;margin-bottom:16px">
+          <label class="lbl" style="margin-top:0">Additional Notes</label>
+          <textarea id="review-notes" class="inp" rows="2" placeholder="Any other details about your situation..." style="resize:vertical"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button class="btn-sec" onclick="reviewBack()">← Back</button>
+          <button class="btn-primary" id="submit-btn" onclick="submitReport()" style="flex:1">🔒 Submit Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="screen-reports" class="screen hidden">
+      <h2 style="font-size:18px;font-weight:700;color:#0F172A;margin-bottom:4px">My Reports</h2>
+      <p id="reports-count" style="font-size:12px;color:#64748B;margin-bottom:16px"></p>
+      <div id="reports-empty" class="hidden" style="padding-top:60px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">📋</div>
+        <h3 style="font-size:17px;font-weight:600;color:#0F172A;margin-bottom:4px">No Reports Yet</h3>
+        <p style="font-size:13px;color:#64748B">Submit your first damage report to see it here.</p>
+      </div>
+      <div id="reports-list" style="display:grid;gap:10px"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="screen-dashboard" class="screen hidden">
+      <h2 style="font-size:18px;font-weight:700;color:#0F172A;margin-bottom:4px">Regional Dashboard</h2>
+      <p style="font-size:12px;color:#64748B;margin-bottom:16px">Anonymized, aggregated view — Winter Storm Fern response</p>
+
+      <div class="stat-grid">
+        <div class="card stat-card">
+          <div style="font-size:18px;margin-bottom:4px">📊</div>
+          <div id="dash-total" style="font-size:20px;font-weight:800;color:#0F172A"></div>
+          <div style="font-size:10px;color:#64748B">Total Reports</div>
+        </div>
+        <div class="card stat-card">
+          <div style="font-size:18px;margin-bottom:4px">🗺️</div>
+          <div style="font-size:20px;font-weight:800;color:#0F172A">6</div>
+          <div style="font-size:10px;color:#64748B">Counties Active</div>
+        </div>
+        <div class="card stat-card">
+          <div style="font-size:18px;margin-bottom:4px">⏱️</div>
+          <div style="font-size:20px;font-weight:800;color:#0F172A">2.4h</div>
+          <div style="font-size:10px;color:#64748B">Avg. Response</div>
+        </div>
+      </div>
+
+      <div class="alert-banner">
+        <div class="flex-row" style="margin-bottom:6px">
+          <span style="animation:pulse 1.5s infinite">🚨</span>
+          <span style="font-size:13px;font-weight:700">AI Alert: Structural Damage Cluster Detected</span>
+        </div>
+        <p style="font-size:11px;color:#FECACA;line-height:1.6">Multiple barn collapse reports in NW Jackson County within 3-mile radius. Emergency responders notified. 4 farms affected, 2 reporting livestock at risk.</p>
+        <div style="font-size:10px;color:#FCA5A5;margin-top:6px">Auto-generated · Feb 2, 2026 14:32 CST</div>
+      </div>
+
+      <h3 style="font-size:14px;font-weight:700;color:#0F172A;margin-bottom:10px">County Breakdown</h3>
+      <div id="county-list" style="display:grid;gap:8px;margin-bottom:16px"></div>
+
+      <h3 style="font-size:14px;font-weight:700;color:#0F172A;margin-bottom:10px">Damage Category Distribution</h3>
+      <div class="card" style="padding:16px">
+        <div id="cat-dist"></div>
+      </div>
+
+      <div style="margin-top:16px;padding:12px 14px;background:#EFF6FF;border-radius:10px;display:flex;gap:8px;align-items:flex-start">
+        <span style="font-size:14px">🔒</span>
+        <span style="font-size:11px;color:#1E3A5F;line-height:1.5">This dashboard shows anonymized, aggregated data only. Individual farm reports are encrypted and accessible only to the submitting producer and their authorized agents.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav id="bottomnav">
+    <button class="nav-btn" id="nav-home" onclick="navigate('home')">
+      <span class="nav-icon">🏠</span><span>Home</span>
+    </button>
+    <button class="nav-btn" id="nav-new" onclick="navigate('new')">
+      <div class="nav-btn-add"><span style="filter:brightness(10)">➕</span></div>
+      <span>Report</span>
+    </button>
+    <button class="nav-btn" id="nav-reports" onclick="navigate('reports')">
+      <span class="nav-icon">📋</span><span>History</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────
+const CATEGORIES = [
+  { id:"structural", label:"Structural Damage", icon:"🏚️", color:"#DC2626", desc:"Barns, roofs, fencing",
+    questions:[
+      {id:"s1",text:"Building/barn damage severity?",type:"select",opts:["No damage","Minor (repairable)","Major (partial collapse)","Total collapse"]},
+      {id:"s2",text:"Fencing damage?",type:"select",opts:["None","Some sections down","Widespread","Destroyed"]},
+      {id:"s3",text:"Number of structures affected:",type:"number"},
+      {id:"s4",text:"Describe the structural damage:",type:"text"},
+    ]},
+  { id:"livestock", label:"Livestock Losses", icon:"🐄", color:"#7C3AED", desc:"Mortality, shelter, water",
+    questions:[
+      {id:"l1",text:"Livestock mortality from storm?",type:"select",opts:["No losses","1-5 animals","6-20 animals","20+ animals"]},
+      {id:"l2",text:"Water supply status?",type:"select",opts:["Normal","Partially frozen","Completely frozen"]},
+      {id:"l3",text:"Shelter adequacy?",type:"select",opts:["All sheltered","Some lack shelter","No shelter available"]},
+      {id:"l4",text:"Describe livestock situation:",type:"text"},
+    ]},
+  { id:"equipment", label:"Equipment Damage", icon:"🔧", color:"#EA580C", desc:"Mechanical, pipes, generators",
+    questions:[
+      {id:"e1",text:"Equipment failures from cold?",type:"select",opts:["No issues","Minor","Multiple failures","Critical equipment down"]},
+      {id:"e2",text:"Pipe/pump damage?",type:"select",opts:["None","Frozen","Burst with damage","Major failure"]},
+      {id:"e3",text:"Generator status?",type:"select",opts:["Not needed","Working","Failed/no fuel","No generator"]},
+      {id:"e4",text:"List affected equipment:",type:"text"},
+    ]},
+  { id:"feed", label:"Feed & Forage", icon:"🌾", color:"#CA8A04", desc:"Stored feed, grazing losses",
+    questions:[
+      {id:"f1",text:"Stored feed condition?",type:"select",opts:["Intact","Some damaged","Mostly damaged","Total loss"]},
+      {id:"f2",text:"Estimated feed loss value ($):",type:"number"},
+      {id:"f3",text:"Alternative feed access?",type:"select",opts:["Yes","Limited","None"]},
+      {id:"f4",text:"Additional details:",type:"text"},
+    ]},
+  { id:"crop", label:"Crop Damage", icon:"🌱", color:"#16A34A", desc:"Winter wheat, cover crops",
+    questions:[
+      {id:"c1",text:"Crop damage from freeze-thaw?",type:"select",opts:["None visible","Minor stress","Significant","Likely lost","N/A"]},
+      {id:"c2",text:"Estimated acreage affected:",type:"number"},
+      {id:"c3",text:"Planting schedule impact?",type:"select",opts:["No impact","Minor delays","Significant delays","Season compromised"]},
+      {id:"c4",text:"Describe crop conditions:",type:"text"},
+    ]},
+  { id:"power", label:"Power & Technology", icon:"⚡", color:"#2563EB", desc:"Outages, sensors, cold storage",
+    questions:[
+      {id:"p1",text:"Current power status?",type:"select",opts:["Full power","Intermittent","Generator only","No power"]},
+      {id:"p2",text:"Precision ag systems affected?",type:"select",opts:["No issues","Some offline","Major failures","N/A"]},
+      {id:"p3",text:"Cold storage status?",type:"select",opts:["Intact","Brief failure (<4hr)","Extended (4-24hr)","Total failure (>24hr)"]},
+      {id:"p4",text:"Describe power/tech issues:",type:"text"},
+    ]},
+  { id:"transport", label:"Transportation", icon:"🚛", color:"#0891B2", desc:"Road access, deliveries",
+    questions:[
+      {id:"t1",text:"Farm road access?",type:"select",opts:["Full access","Limited","Very difficult","Cut off"]},
+      {id:"t2",text:"Commodity movement disruption?",type:"select",opts:["None","1-2 day delay","3+ day delay","Unable to move"]},
+      {id:"t3",text:"Supply delivery status?",type:"select",opts:["Normal","Some delays","Major delays","None possible"]},
+      {id:"t4",text:"Transportation details:",type:"text"},
+    ]},
+  { id:"food_safety", label:"Food Safety", icon:"🧊", color:"#DB2777", desc:"Spoilage, contamination",
+    questions:[
+      {id:"fs1",text:"Food storage compromised?",type:"select",opts:["All safe","Some at risk","Significant loss","Major concern"]},
+      {id:"fs2",text:"Cold storage failure duration?",type:"select",opts:["No failure","<4 hours","4-12 hours","12-24 hours",">24 hours"]},
+      {id:"fs3",text:"Water contamination concerns?",type:"select",opts:["None","Possible","Confirmed"]},
+      {id:"fs4",text:"Describe food safety concerns:",type:"text"},
+    ]},
+];
+
+const MOCK_REGIONAL = [
+  {county:"Jackson",reports:47,severity:"high",top:"Structural, Livestock"},
+  {county:"Williamson",reports:31,severity:"high",top:"Equipment, Power"},
+  {county:"Union",reports:22,severity:"medium",top:"Crop, Feed"},
+  {county:"Perry",reports:18,severity:"medium",top:"Transportation, Feed"},
+  {county:"Franklin",reports:14,severity:"medium",top:"Structural, Crop"},
+  {county:"Saline",reports:9,severity:"low",top:"Power, Equipment"},
+];
+
+const SEV_STYLES = {
+  low:{bg:"#DCFCE7",fg:"#166534"},
+  medium:{bg:"#FEF3C7",fg:"#92400E"},
+  high:{bg:"#FFEDD5",fg:"#9A3412"},
+  critical:{bg:"#FEE2E2",fg:"#991B1B"}
+};
+
+const CAT_DIST = [38,31,27,22,18,24,15,12];
+
+// ── State ─────────────────────────────────────────────────
+let user = null;
+let reports = [];
+let gps = {lat:"37.7266",lng:"-89.2188"};
+let photos = []; // [{name, src}]
+let answers = {};
+let selectedCats = [];
+let currentStep = 0; // 0 = pick cats, 1..N = questions, N+1 = review
+let currentSeverity = "medium";
+let activeCats = []; // filtered CATEGORIES
+
+// ── Login ─────────────────────────────────────────────────
+const loginName = document.getElementById('login-name');
+const loginFarm = document.getElementById('login-farm');
+const loginBtn  = document.getElementById('login-btn');
+
+function checkLoginBtn() {
+  const ok = loginName.value.trim() && loginFarm.value.trim();
+  loginBtn.style.opacity = ok ? '1' : '.5';
+  loginBtn.style.pointerEvents = ok ? 'auto' : 'none';
+}
+loginName.addEventListener('input', checkLoginBtn);
+loginFarm.addEventListener('input', checkLoginBtn);
+
+function doLogin() {
+  user = {
+    name: loginName.value.trim(),
+    farm: loginFarm.value.trim(),
+    county: document.getElementById('login-county').value
+  };
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('topbar-avatar').textContent = user.name.charAt(0).toUpperCase();
+
+  // GPS
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => { gps.lat = p.coords.latitude.toFixed(6); gps.lng = p.coords.longitude.toFixed(6); },
+      () => {}, {timeout:4000}
+    );
+  }
+
+  navigate('home');
+  buildHomeCats();
+  buildDashboard();
+}
+
+// ── Navigation ────────────────────────────────────────────
+function navigate(screen) {
+  ['home','new','reports','dashboard'].forEach(s => {
+    document.getElementById('screen-'+s).classList.add('hidden');
+  });
+  document.getElementById('screen-'+screen).classList.remove('hidden');
+
+  // nav active states
+  ['home','new','reports'].forEach(n => {
+    document.getElementById('nav-'+n).classList.toggle('active', n === screen);
+  });
+  document.getElementById('topbar-regional-btn').classList.toggle('active', screen === 'dashboard');
+
+  if (screen === 'home') refreshHome();
+  if (screen === 'reports') renderReports();
+  if (screen === 'dashboard') {
+    const total = MOCK_REGIONAL.reduce((s,c)=>s+c.reports,0) + reports.length;
+    document.getElementById('dash-total').textContent = total;
+  }
+  if (screen === 'new') initNewReport();
+}
+
+// ── Home ──────────────────────────────────────────────────
+function refreshHome() {
+  document.getElementById('home-name').textContent = user.name;
+  document.getElementById('home-farm').textContent = user.farm + ' · ' + user.county + ' County, IL';
+  const c = reports.length;
+  document.getElementById('home-report-count').textContent = c + ' submitted';
+}
+
+function buildHomeCats() {
+  const el = document.getElementById('home-cats');
+  el.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'card cat-card';
+    d.innerHTML = `<span style="font-size:22px">${c.icon}</span><div><div style="font-size:12px;font-weight:600;color:#0F172A">${c.label}</div><div style="font-size:10px;color:#64748B">${c.desc}</div></div>`;
+    d.onclick = () => navigate('new');
+    el.appendChild(d);
+  });
+}
+
+// ── New Report ────────────────────────────────────────────
+function initNewReport() {
+  selectedCats = [];
+  answers = {};
+  photos = [];
+  currentStep = 0;
+  currentSeverity = 'medium';
+  activeCats = [];
+  document.getElementById('review-notes').value = '';
+  showNewStep(0);
+  buildCatList();
+  document.getElementById('photo-grid').innerHTML = '';
+}
+
+function showNewStep(n) {
+  document.getElementById('new-step-0').classList.toggle('hidden', n !== 0);
+  document.getElementById('new-step-q').classList.toggle('hidden', n < 1 || n > activeCats.length);
+  document.getElementById('new-step-review').classList.toggle('hidden', n <= activeCats.length);
+}
+
+function buildCatList() {
+  const el = document.getElementById('cat-list');
+  el.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const on = selectedCats.includes(c.id);
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.id = 'cat-item-' + c.id;
+    d.style.cssText = `padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;border:${on?`2px solid ${c.color}`:'1px solid #E2E8F0'};background:${on?c.color+'08':'#fff'};transition:.15s`;
+    d.innerHTML = `
+      <span style="font-size:26px">${c.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:#0F172A">${c.label}</div>
+        <div style="font-size:11px;color:#64748B">${c.desc} · ${c.questions.length} questions</div>
+      </div>
+      <div style="width:24px;height:24px;border-radius:7px;border:${on?`2px solid ${c.color}`:'2px solid #CBD5E1'};background:${on?c.color:'transparent'};display:flex;align-items:center;justify-content:center;transition:.2s">
+        ${on?'<span style="color:#fff;font-size:14px;font-weight:700">✓</span>':''}
+      </div>`;
+    d.onclick = () => toggleCat(c.id);
+    el.appendChild(d);
+  });
+  updateStep0Btn();
+}
+
+function toggleCat(id) {
+  if (selectedCats.includes(id)) selectedCats = selectedCats.filter(x=>x!==id);
+  else selectedCats.push(id);
+  buildCatList();
+}
+
+function updateStep0Btn() {
+  const btn = document.getElementById('step0-continue');
+  const n = selectedCats.length;
+  btn.style.opacity = n ? '1' : '.5';
+  btn.style.pointerEvents = n ? 'auto' : 'none';
+  btn.textContent = `Continue with ${n} categor${n===1?'y':'ies'} →`;
+
+  // progress
+  document.getElementById('new-progress-0').innerHTML = renderProgress(0, n + 2);
+}
+
+function renderProgress(cur, tot) {
+  const pct = tot > 1 ? Math.round((cur/(tot-1))*100) : 0;
+  return `<div><div style="display:flex;justify-content:space-between;font-size:10px;color:#64748B;margin-bottom:4px"><span>Step ${cur+1} of ${tot}</span><span>${pct}%</span></div>
+  <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div></div>`;
+}
+
+function goStep1() {
+  if (!selectedCats.length) return;
+  activeCats = CATEGORIES.filter(c => selectedCats.includes(c.id));
+  currentStep = 1;
+  showNewStep(1);
+  renderQStep();
+}
+
+function renderQStep() {
+  const ci = currentStep - 1;
+  const cat = activeCats[ci];
+  const tot = activeCats.length + 2;
+  document.getElementById('q-progress').innerHTML = renderProgress(currentStep, tot);
+  document.getElementById('q-cat-icon').textContent = cat.icon;
+  document.getElementById('q-cat-label').textContent = cat.label;
+  document.getElementById('q-cat-sub').textContent = `Category ${ci+1} of ${activeCats.length}`;
+  document.getElementById('q-photo-lbl').textContent = `📷 Upload photos — ${cat.label}`;
+  document.getElementById('q-next-btn').textContent = ci < activeCats.length-1 ? 'Next Category →' : 'Review Report →';
+
+  const fields = document.getElementById('q-fields');
+  fields.innerHTML = '';
+  cat.questions.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'card q-card';
+    let inputHtml = '';
+    if (q.type === 'select') {
+      inputHtml = `<select class="inp" id="q-${q.id}" onchange="answers['${q.id}']=this.value"><option value="">— Select —</option>${q.opts.map(o=>`<option${answers[q.id]===o?' selected':''}>${o}</option>`).join('')}</select>`;
+    } else if (q.type === 'number') {
+      inputHtml = `<input type="number" min="0" class="inp" id="q-${q.id}" value="${answers[q.id]||''}" placeholder="Enter number" oninput="answers['${q.id}']=this.value" />`;
+    } else {
+      inputHtml = `<textarea class="inp" id="q-${q.id}" rows="2" placeholder="Describe in detail..." style="resize:vertical" oninput="answers['${q.id}']=this.value">${answers[q.id]||''}</textarea>`;
+    }
+    card.innerHTML = `<label class="lbl" style="margin-top:0">${q.text}</label>${inputHtml}`;
+    fields.appendChild(card);
+  });
+}
+
+function qBack() {
+  currentStep--;
+  if (currentStep < 1) { currentStep = 0; showNewStep(0); buildCatList(); }
+  else { showNewStep(currentStep); renderQStep(); }
+}
+
+function qNext() {
+  currentStep++;
+  if (currentStep > activeCats.length) {
+    showNewStep(activeCats.length + 1);
+    renderReview();
+  } else {
+    showNewStep(currentStep);
+    renderQStep();
+  }
+}
+
+function handlePhoto(e) {
+  Array.from(e.target.files || []).forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => {
+      photos.push({name: f.name, src: ev.target.result});
+      renderPhotoGrid();
+    };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+  photos.forEach((p, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'photo-thumb';
+    wrap.innerHTML = `<img src="${p.src}" alt="" /><button class="photo-remove" onclick="removePhoto(${i})">✕</button>`;
+    grid.appendChild(wrap);
+  });
+}
+
+function removePhoto(i) {
+  photos.splice(i, 1);
+  renderPhotoGrid();
+}
+
+// ── Review ────────────────────────────────────────────────
+function renderReview() {
+  const tot = activeCats.length + 2;
+  document.getElementById('review-progress').innerHTML = renderProgress(tot-1, tot);
+  document.getElementById('gps-display').textContent = gps.lat + ', ' + gps.lng;
+
+  // cat summaries
+  const reviewCats = document.getElementById('review-cats');
+  reviewCats.innerHTML = '';
+  activeCats.forEach(cat => {
+    const filled = cat.questions.filter(q => answers[q.id]).length;
+    const complete = filled === cat.questions.length;
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.style.cssText = 'padding:14px 16px;display:flex;align-items:center;gap:10px';
+    d.innerHTML = `<span style="font-size:22px">${cat.icon}</span>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0F172A">${cat.label}</div>
+      <div style="font-size:11px;color:#64748B">${filled}/${cat.questions.length} answered</div></div>
+      <span style="font-size:10px;font-weight:600;padding:3px 10px;border-radius:100px;background:${complete?'#DCFCE7':'#FEF3C7'};color:${complete?'#166534':'#92400E'}">${complete?'Complete':'Partial'}</span>`;
+    reviewCats.appendChild(d);
+  });
+
+  // photos
+  document.getElementById('review-photos').textContent = `📷 ${photos.length} photo${photos.length!==1?'s':''} attached`;
+  const thumbs = document.getElementById('review-photo-thumbs');
+  thumbs.innerHTML = '';
+  photos.forEach(p => {
+    const img = document.createElement('img');
+    img.src = p.src; img.style.cssText = 'width:44px;height:44px;border-radius:7px;object-fit:cover';
+    thumbs.appendChild(img);
+  });
+
+  updateSeverityBtns();
+}
+
+function reviewBack() {
+  currentStep = activeCats.length;
+  showNewStep(currentStep);
+  renderQStep();
+}
+
+function setSeverity(v) {
+  currentSeverity = v;
+  updateSeverityBtns();
+}
+
+function updateSeverityBtns() {
+  document.querySelectorAll('.sev-btn').forEach(btn => {
+    const v = btn.dataset.sev;
+    const active = v === currentSeverity;
+    const s = SEV_STYLES[v];
+    btn.className = 'sev-btn' + (active?' active':'');
+    btn.style.background = active ? s.bg : '#fff';
+    btn.style.color = active ? s.fg : '#64748B';
+    btn.style.borderColor = active ? s.fg : '#E2E8F0';
+    btn.style.borderWidth = active ? '2px' : '1px';
+    btn.style.fontWeight = active ? '700' : '400';
+  });
+}
+
+function submitReport() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">⛓️</span> Securing on blockchain...';
+
+  setTimeout(() => {
+    const hash = '0x' + Array.from({length:16}, ()=>Math.floor(Math.random()*16).toString(16)).join('');
+    reports.unshift({
+      id: Date.now(),
+      time: new Date().toISOString(),
+      hash,
+      status: 'verified',
+      categories: selectedCats,
+      answers: {...answers},
+      photoCount: photos.length,
+      photoData: photos.map(p => p.src),
+      gps: {...gps},
+      notes: document.getElementById('review-notes').value,
+      severity: currentSeverity,
+    });
+    btn.disabled = false;
+    btn.innerHTML = '🔒 Submit Report';
+    showToast('Report submitted & secured on blockchain');
+    navigate('reports');
+  }, 1800);
+}
+
+// ── Reports ───────────────────────────────────────────────
+function renderReports() {
+  const cnt = document.getElementById('reports-count');
+  const empty = document.getElementById('reports-empty');
+  const list = document.getElementById('reports-list');
+  cnt.textContent = reports.length + ' report' + (reports.length!==1?'s':'');
+  empty.classList.toggle('hidden', reports.length > 0);
+  list.innerHTML = '';
+  reports.forEach(r => {
+    const s = SEV_STYLES[r.severity];
+    const card = document.createElement('div');
+    card.className = 'card report-card';
+    const catTags = r.categories.map(cid => {
+      const c = CATEGORIES.find(x=>x.id===cid);
+      return c ? `<span class="tag">${c.icon} ${c.label}</span>` : '';
+    }).join('');
+    card.innerHTML = `
+      <div class="flex-between" style="margin-bottom:10px;align-items:flex-start">
+        <div>
+          <div style="font-size:11px;color:#64748B">🕐 ${new Date(r.time).toLocaleString()}</div>
+          <div style="font-size:14px;font-weight:600;color:#0F172A;margin-top:3px">Report #${String(r.id).slice(-6)}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;background:${s.bg};color:${s.fg};text-transform:capitalize">${r.severity}</span>
+      </div>
+      <div class="tags">${catTags}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#64748B">
+        <span>📷 ${r.photoCount} photo${r.photoCount!==1?'s':''}</span>
+        <span>📍 ${r.gps.lat}, ${r.gps.lng}</span>
+      </div>
+      <div class="hash-box">
+        <span style="font-size:14px">⛓️</span>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:#166534">Blockchain Verified</div>
+          <div style="font-size:10px;color:#15803D;font-family:var(--mono);word-break:break-all">Hash: ${r.hash}</div>
+        </div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+// ── Dashboard ─────────────────────────────────────────────
+function buildDashboard() {
+  // Counties
+  const countyList = document.getElementById('county-list');
+  countyList.innerHTML = '';
+  MOCK_REGIONAL.forEach(c => {
+    const pct = Math.min(Math.round((c.reports/50)*100), 100);
+    const s = SEV_STYLES[c.severity];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.padding = '14px 16px';
+    const fgGrad = c.severity==='high'?'#F97316':'#60A5FA';
+    card.innerHTML = `
+      <div class="flex-between" style="margin-bottom:6px">
+        <div style="font-size:13px;font-weight:600;color:#0F172A">${c.county} County</div>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:${s.bg};color:${s.fg};text-transform:capitalize">${c.severity}</span>
+      </div>
+      <div class="county-bar-bg">
+        <div class="county-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${s.fg},${fgGrad})"></div>
+      </div>
+      <div class="flex-between" style="font-size:10px;color:#64748B">
+        <span>${c.reports} reports</span><span>Top: ${c.top}</span>
+      </div>`;
+    countyList.appendChild(card);
+  });
+
+  // Cat distribution
+  const catDist = document.getElementById('cat-dist');
+  catDist.innerHTML = '';
+  CATEGORIES.forEach((c, i) => {
+    const val = CAT_DIST[i];
+    const pct = (val/40)*100;
+    const last = i === CATEGORIES.length - 1;
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:8px;${last?'':'margin-bottom:10px'}`;
+    row.innerHTML = `
+      <span style="font-size:16px;width:24px;text-align:center">${c.icon}</span>
+      <div style="flex:1"><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>
+      <span style="font-size:11px;font-weight:600;color:#334155;min-width:28px;text-align:right">${val}</span>`;
+    catDist.appendChild(row);
+  });
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.style.background = ok ? '#065F46' : '#991B1B';
+  t.innerHTML = `<span>${ok?'✓':'⚠'}</span>${msg}`;
+  t.style.display = 'flex';
+  setTimeout(() => { t.style.display = 'none'; }, 3200);
+}
+</script>
+</body>
+</html>
